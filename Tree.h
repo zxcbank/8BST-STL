@@ -26,18 +26,30 @@ class Tree {
                 
                 node(T x, node* par) : x(x), left(nullptr), right(nullptr), parent(par) {};
                 node() = default;
-                ~node() = default;
+                ~node() {
+                    delete left;
+                    delete right;
+                    delete parent;
+                };
         };
         
         class iterator {
             public:
-                using value_type = T;
-                using reference = T&;
-                node* current;
+                using iterator_category = std::bidirectional_iterator_tag;
+                using value_type = typename Tree::value_type;
+                using difference_type = std::ptrdiff_t;
+                using pointer = const value_type*;
+                using reference = const value_type&;
                 
-                iterator(node* t) {
+                node* current;
+                bool is_end = false;
+                Tree<T>* bst = nullptr;
+                
+                iterator(node* t, Tree<T>* a) {
+                    this->bst = a;
                     this->current = t;
                 }
+                
                 iterator()=default;
                 ~iterator()=default;
                 iterator& operator= (const iterator &iter_)
@@ -48,23 +60,42 @@ class Tree {
                 
                 bool operator == (const iterator &iter_) const
                 {
+                    if (iter_.is_end && (this->current == nullptr))
+                        return true;
                     return (current == iter_.current);
                 }
                 
                 bool operator!=(const iterator &iter_) const
                 {
+                    
                     return !(iter_ == *this);
                 }
                 
-                T& operator* () const {
+                reference operator* () const {
                     return this->current->x;
+                }
+                
+                pointer operator->() const {
+                    return &this->current->x;
                 }
         };
         
         class InIterator : public iterator {
             friend class Tree<T>;
             public:
+                InIterator(node* t, Tree<T>* a) {
+                    this->bst = a;
+                    this->current = t;
+                }
                 InIterator& operator--() {
+                    if (!this->current) {
+                        node* t = this->bst->root;
+                        while (t->right) {
+                            t = t->right;
+                        }
+                        this->current = t;
+                        return *this;
+                    }
                     if (this->current->left) {
                         this->current = this->current->left;
                         while (this->current->right) {
@@ -79,20 +110,13 @@ class Tree {
                 }
                 
                 InIterator& operator--(int) {
-                    if (this->current->left) {
-                        this->current = this->current->left;
-                        while (this->current->right) {
-                            this->current = this->current->right;
-                        }
-                        return *this;
-                    } else if (this->current->parent && this->current->parent->right == this->current) {
-                        this->current = this->current->parent;
-                        return *this;
-                    }
-                    return *this;
+                    InIterator t = *this;
+                    --(*this);
+                    return t;
+                    
                 }
                 
-                InIterator& operator++() { // TODO: сделать как ++(int)
+                InIterator& operator++() {
                     if (this->current->right) {
                         this->current = this->current->right;
                         while (this->current->left) {
@@ -100,37 +124,40 @@ class Tree {
                         }
                         return *this;
                     } else if (this->current->parent) {
-                        while (this->current->parent->right == this->current) {
+                        while (this->current->parent && this->current->parent->right == this->current) {
                             this->current = this->current->parent;
                         }
-                        this->current = this->current->parent;
+                        if (this->current->parent) {
+                            this->current = this->current->parent;
+                            return *this;
+                        }
+                        this->current = nullptr;
                         return *this;
                     }
+                    this->current = nullptr;
                     return *this;
                 }
                 
                 InIterator& operator++(int) {
-                    if (this->current->right) {
-                        this->current = this->current->right;
-                        while (this->current->left) {
-                            this->current = this->current->left;
-                        }
-                        return *this;
-                    } else if (this->current->parent) {
-                        while (this->current->parent->right == this->current) {
-                            this->current = this->current->parent;
-                        }
-                        this->current = this->current->parent;
-                        return *this;
-                    }
-                    return *this;
+                    InIterator t = *this;
+                    ++(*this);
+                    return t;
+                    
                 }
         };
         
         class PostIterator : public iterator {
             friend class Tree<T>;
             public:
+                PostIterator(node* t, Tree<T>* a) {
+                    this->bst = a;
+                    this->current = t;
+                }
                 PostIterator& operator--() {
+                    if (this->current == nullptr) {
+                        this->current = this->bst->root;
+                        return *this;
+                    }
                     if (this->current->right) {
                         this->current = this->current->right;
                         return *this;
@@ -142,24 +169,13 @@ class Tree {
                             this->current = this->current->parent->left;
                             return *this;
                         }
-                        
                     }
                 }
                 
                 PostIterator& operator--(int) {
-                    if (this->current->right) {
-                        this->current = this->current->right;
-                        return *this;
-                    } else if (this->current->left) {
-                        this->current = this->current->left;
-                        return *this;
-                    } else if (this->current->parent && this->current->parent->right == this->current) {
-                        if (this->current->parent->left) {
-                            this->current = this->current->parent->left;
-                            return *this;
-                        }
-                        
-                    }
+                    PostIterator t = *this;
+                    --(*this);
+                    return t;
                 }
                 
                 PostIterator& operator++() {
@@ -178,33 +194,40 @@ class Tree {
                             return *this;
                         }
                     }
+                    this->current = nullptr;
                     return *this;
                 }
                 
                 PostIterator& operator++(int) {
-                    if (this->current->parent && this->current->parent->right == this->current) {
-                        this->current = this->current->parent;
-                        return *this;
-                    } else if (this->current->parent) {
-                        if (this->current->parent->right) {
-                            this->current = this->current->parent->right;
-                            while (this->current->left) {
-                                this->current = this->current->left;
-                            }
-                            return *this;
-                        } else {
-                            this->current = this->current->parent;
-                            return *this;
-                        }
-                    }
-                    return *this;
+                    PostIterator t = *this;
+                    ++(*this);
+                    return t;
                 }
         };
         
         class PreIterator : public iterator {
             friend class Tree<T>;
             public:
+                
+                PreIterator(node* t, Tree<T>* a) {
+                    this->bst = a;
+                    this->current = t;
+                }
+                
                 PreIterator& operator--() {
+                    if (!this->current) {
+                        node* t = this->bst->root;
+                        while (t->right || t->left) {
+                            while (t->right) {
+                                t = t->right;
+                            }
+                            if (t->left) {
+                                t = t->left;
+                            }
+                        }
+                        this->current = t;
+                        return *this;
+                    }
                     if (this->current->parent->left && (this->current != this->current->parent->left)) {
                         this->current = this->current->parent->left;
                         while (this->current->right) {
@@ -219,20 +242,12 @@ class Tree {
                 }
                 
                 PreIterator& operator--(int) {
-                    if (this->current->parent->left && (this->current != this->current->parent->left)) {
-                        this->current = this->current->parent->left;
-                        while (this->current->right) {
-                            this->current = this->current->right;
-                        }
-                        return *this;
-                    } else if (this->current->parent) {
-                        this->current = this->current->parent;
-                        return *this;
-                    }
-                    return *this;
+                    PreIterator t = *this;
+                    --(*this);
+                    return t;
                 }
                 
-                 PreIterator& operator++() {
+                PreIterator& operator++() {
                     node* l = this->current->left;
                     node* r = this->current->right;
                     node* p =  this->current->parent;
@@ -254,36 +269,19 @@ class Tree {
                                 }
                                 this->current = p;
                                 p = p->parent;
+                                if (!p) {
+                                    this->current = nullptr;
+                                    return *this;
+                                }
                             }
                         }
                     }
                 }
                 
                 PreIterator& operator++(int) {
-                    node* l = this->current->left;
-                    node* r = this->current->right;
-                    node* p =  this->current->parent;
-                    if (l != nullptr) {
-                        this->current = l;
-                        return *this;
-                    } else if (r != nullptr) {
-                        this->current = r;
-                        return *this;
-                    }  else if (p) {
-                        if (p->left == this->current && p->right) {
-                            this->current = p->right;
-                            return *this;
-                        } else {
-                            while (p) {
-                                if (this->current == p->left && p->right != nullptr) {
-                                    this->current =  p->right;
-                                    return *this;
-                                }
-                                this->current = p;
-                                p = p->parent;
-                            }
-                        }
-                    }
+                    PreIterator t = *this;
+                    ++(*this);
+                    return t;
                 }
                 
         };
@@ -296,19 +294,25 @@ class Tree {
         node* push(T x, node* t, node* par);
         node* del(node* t, T n);
         bool exists(T n);
+        void clear(node* t);
+        Tree<T>& merge(Tree<T>& smurf);
+        ~Tree() {
+            clear(root);
+            delete root;
+        }
         
         template<class Tag = InOrder>
-        auto begin(){
+        const auto begin(){
             if constexpr(std::is_same<Tag, InOrder>()) {
                 node* t = root;
                 while (t->left) {
                     t = t->left;
                 }
-                return InIterator(t);
+                return InIterator(t, this);
             } else if constexpr(std::is_same<Tag, PreOrder>()) {
                 return PreIterator(root);
             } else if constexpr(std::is_same<Tag, PostOrder>()) {
-                node*t = root;
+                node* t = root;
                 while (t->left || t->right) {
                     while (t->left) {
                         t = t->left;
@@ -317,31 +321,25 @@ class Tree {
                         t = t->right;
                     }
                 }
-                return PostIterator(t);
+                return PostIterator(t, this);
             }
         };
         
+        
+        
         template<class Tag = InOrder>
-        auto end(){
+        const auto end(){
             if constexpr (std::is_same<Tag, InOrder>()) {
-                node* t = root;
-                while (t->right) {
-                    t = t->right;
-                }
-                node* EndNode = new node();
-                EndNode->left = t;
-                return InIterator(EndNode);
+                return InIterator(nullptr, this);
             } else if constexpr(std::is_same<Tag, PreOrder>()) {
-                return PreIterator();
+                return PreIterator(nullptr, this);
             } else if constexpr(std::is_same<Tag, PostOrder>()) {
-                node* EndNode;
-                EndNode->right = root;
-                return PostIterator(EndNode);
+                return PostIterator(nullptr, this);
             }
         }
         
-        void clear(){
-            root = nullptr; // железо не стоит моего времени (с) Вы.
+        bool empty() {
+            return (root == nullptr);
         }
 };
 
@@ -402,3 +400,25 @@ bool Tree<T>::exists(T n){
     }
     return false;
 }
+
+template <class T>
+void Tree<T>::clear(Tree<T>::node* t) {
+    if (t == nullptr) {
+        return;
+    }
+    clear(t->left);
+    clear(t->right);
+    t = nullptr;
+}
+
+template <class T>
+Tree<T>& Tree<T>::merge(Tree<T>& tree) {
+    for (Tree<T>::InIterator i = tree.begin<InOrder>(); i != tree.end<InOrder>(); i++) {
+        this->insert(i.current->x);
+    }
+    
+    clear(tree.root);
+    return *this;
+}
+
+
