@@ -13,4 +13,6 @@ int main() {
     a.insert(2);
     a.insert(4);
     a.insert(6);
+    Tree<int>::InIterator i = a.begin();
+    std::cout << i.current->x;
 }
