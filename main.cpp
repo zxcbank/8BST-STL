@@ -6,13 +6,11 @@
 #include "Tree.h"
 
 int main() {
-    while (true) {
-        Tree<int> bst;
-        Tree<int> bst2;
-        bst.insert(1);
-        bst.insert(2);
-        bst.insert(3);
-        bst2.insert(1000);
-        bst.merge(bst2);
-    }
+    
+    Tree<int> a;
+    a.insert(5);
+    a.insert(3);
+    a.insert(2);
+    a.insert(4);
+    a.insert(6);
 }

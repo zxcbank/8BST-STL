@@ -1,6 +1,10 @@
 //
 // Created by Святослав on 10.03.2024.
-// кто скатает - въебу
+//
+#include <limits>
+#include <cstdint>
+#include <functional>
+#include <bits/stdc++.h>
 
 struct PreOrder{};
 struct InOrder{};
@@ -10,11 +14,20 @@ template <class T>
 class Tree {
     
     public:
+        // container usings
         using value_type = T;
         using reference = T&;
         using const_reference = const T&;
         using diffence_type = int;
         using size_type = size_t;
+        
+        //ass container usings
+        using key_type = T;
+        using mapped_type = T;
+        using key_compare = std::less<T>;
+        using value_compare = std::less<T>;
+        template<class kag> using reverse_iterator = std::reverse_iterator<kag>;
+        
         
         struct node {
             public:
@@ -29,9 +42,9 @@ class Tree {
                 ~node() {
                     delete left;
                     delete right;
-                    delete parent;
                 };
         };
+        using node_type = node;
         
         class iterator {
             public:
@@ -52,6 +65,7 @@ class Tree {
                 
                 iterator()=default;
                 ~iterator()=default;
+                
                 iterator& operator= (const iterator &iter_)
                 {
                     current = iter_.current;
@@ -287,30 +301,63 @@ class Tree {
         };
         
         
+        
+        
+        
     // TODO: METHODS
     public:
         node* root = nullptr;
         void insert(T x);
         node* push(T x, node* t, node* par);
-        node* del(node* t, T n);
-        bool exists(T n);
-        void clear(node* t);
+        node* del(Tree<T>::node* t, const T& n);
+        size_type erase(const T& k);
+        bool contains(const T& n);
+        void clear();
+        void swap(Tree<T>& C);
+        size_type size();
+        size_type max_size();
         Tree<T>& merge(Tree<T>& smurf);
+//        node extract(T& n);
+//        node extract(node* q);
+        size_type count(const T& k);
+        node* mini(node* t);
+        node* maxi(node* t);
+        
         ~Tree() {
-            clear(root);
+            
             delete root;
         }
         
+        bool operator== (const Tree<T>& C) {
+            if (C.size() == *this->size()) {
+                if (std::equal(C.begin(), C.end(), *this->begin())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        bool operator!= (const Tree<T>& C) {
+            if (C.size() == *this->size()) {
+                if (std::equal(C.begin(), C.end(), *this->begin())) {
+                    return true;
+                }
+            }
+            return !(*this == C);
+        }
+        
         template<class Tag = InOrder>
-        const auto begin(){
+        auto begin() {
             if constexpr(std::is_same<Tag, InOrder>()) {
                 node* t = root;
+                if (!t)
+                    return InIterator(t, this);
                 while (t->left) {
                     t = t->left;
                 }
                 return InIterator(t, this);
             } else if constexpr(std::is_same<Tag, PreOrder>()) {
-                return PreIterator(root);
+                return PreIterator(root, this);
             } else if constexpr(std::is_same<Tag, PostOrder>()) {
                 node* t = root;
                 while (t->left || t->right) {
@@ -325,16 +372,109 @@ class Tree {
             }
         };
         
-        
-        
         template<class Tag = InOrder>
-        const auto end(){
+        auto end(){
             if constexpr (std::is_same<Tag, InOrder>()) {
                 return InIterator(nullptr, this);
             } else if constexpr(std::is_same<Tag, PreOrder>()) {
                 return PreIterator(nullptr, this);
             } else if constexpr(std::is_same<Tag, PostOrder>()) {
                 return PostIterator(nullptr, this);
+            }
+        }
+        
+        template <class Tag = InOrder>
+        auto find(const T& k) {
+            node* t = root;
+            while (t && t->x != k) {
+                if (t->x > k) {
+                    t = t->left;
+                } else {
+                    t = t->right;
+                }
+            }
+            
+            if constexpr (std::is_same<Tag, InOrder>()) {
+                return InIterator(t, this);
+            } else if constexpr(std::is_same<Tag, PreOrder>()) {
+                return PreIterator(t, this);
+            } else if constexpr(std::is_same<Tag, PostOrder>()) {
+                return PostIterator(t, this);
+            }
+            
+        }
+        
+        template <class Tag = InOrder>
+        auto lower_bound(const T& k) {
+            for (InIterator i = this->begin(); i != this->end(); i++) {
+                if (i.current->x >= k) {
+                    if (i != this->begin()) {
+                        i--;
+                    } else {
+                        i.current = nullptr;
+                    }
+                    
+                    if constexpr (std::is_same<Tag, InOrder>()) {
+                        return InIterator(i.current, this);
+                    } else if constexpr(std::is_same<Tag, PreOrder>()) {
+                        return PreIterator(i.current, this);
+                    } else if constexpr(std::is_same<Tag, PostOrder>()) {
+                        return PostIterator(i.current, this);
+                    }
+                }
+            }
+            
+            if constexpr (std::is_same<Tag, InOrder>()) {
+                return InIterator(nullptr, this);
+            } else if constexpr(std::is_same<Tag, PreOrder>()) {
+                return PreIterator(nullptr, this);
+            } else if constexpr(std::is_same<Tag, PostOrder>()) {
+                return PostIterator(nullptr, this);
+            }
+        }
+        
+        template <class Tag = InOrder>
+        auto upper_bound(const T& k) {
+            for (InIterator i = this->begin(); i != this->end(); i++) {
+                if (i.current->x > k) {
+                    if constexpr (std::is_same<Tag, InOrder>()) {
+                        return InIterator(i.current, this);
+                    } else if constexpr(std::is_same<Tag, PreOrder>()) {
+                        return PreIterator(i.current, this);
+                    } else if constexpr(std::is_same<Tag, PostOrder>()) {
+                        return PostIterator(i.current, this);
+                    }
+                }
+            }
+            
+            if constexpr (std::is_same<Tag, InOrder>()) {
+                return InIterator(nullptr, this);
+            } else if constexpr(std::is_same<Tag, PreOrder>()) {
+                return PreIterator(nullptr, this);
+            } else if constexpr(std::is_same<Tag, PostOrder>()) {
+                return PostIterator(nullptr, this);
+            }
+        }
+        
+        template <class Tag = InOrder>
+        auto rbegin() {
+            if constexpr (std::is_same<Tag, InOrder>()) {
+                return std::reverse_iterator(end<InOrder>());
+            } else if constexpr(std::is_same<Tag, PreOrder>()) {
+                return std::reverse_iterator(end<PreOrder>());
+            } else if constexpr(std::is_same<Tag, PostOrder>()) {
+                return std::reverse_iterator(end<PostOrder>());
+            }
+        }
+        
+        template <class Tag = InOrder>
+        auto rend() {
+            if constexpr (std::is_same<Tag, InOrder>()) {
+                return std::reverse_iterator(begin<InOrder>());
+            } else if constexpr(std::is_same<Tag, PreOrder>()) {
+                return std::reverse_iterator(begin<PreOrder>());
+            } else if constexpr(std::is_same<Tag, PostOrder>()) {
+                return std::reverse_iterator(begin<PostOrder>());
             }
         }
         
@@ -345,12 +485,22 @@ class Tree {
 
 
 
+template <class T>
+Tree<T>::size_type Tree<T>::erase(const T& k) {
+    node* t = del(root, k);
+    if (!t){
+        delete t;
+        return 0;
+    }
+    delete t;
+    return 1;
+}
 
 template <class T>
 Tree<T>::node* Tree<T>::push(T x, Tree<T>::node* t, Tree<T>::node* par){
     if (t == nullptr) {
         t = new node(x, par);
-    }else if (x < t->x) {
+    } else if (x < t->x) {
         t->left = push(x, t->left,  t);
     } else if (x > t->x) {
         t->right = push(x, t->right,  t);
@@ -359,7 +509,29 @@ Tree<T>::node* Tree<T>::push(T x, Tree<T>::node* t, Tree<T>::node* par){
 }
 
 template <class T>
-Tree<T>::node* Tree<T>::del(Tree<T>::node* t, T n){
+Tree<T>::size_type Tree<T>::size() {
+    return std::distance(this->begin<InOrder>(), this->end<InOrder>());
+}
+
+template <class T>
+Tree<T>::size_type Tree<T>::max_size() {
+    return std::numeric_limits<size_type>::max();
+}
+
+template <class T>
+Tree<T>::size_type Tree<T>::count(const T& k){
+    size_type cnt = 0;
+    for (Tree<T>::InIterator i = this->begin(); i != this->end(); i++) {
+        if (i.current->x == k) {
+            cnt++;
+        }
+    }
+    
+    return cnt;
+}
+
+template <class T>
+Tree<T>::node* Tree<T>::del(Tree<T>::node* t, const T& n){
     if (t == nullptr)
         return t;
     if (n < t->x){
@@ -380,6 +552,29 @@ Tree<T>::node* Tree<T>::del(Tree<T>::node* t, T n){
     }
     return t;
 }
+template <class T>
+Tree<T>::node* Tree<T>::mini(Tree<T>::node* t){
+    if (t->left == nullptr)
+        return t;
+    return mini(t->left);
+}
+
+template <class T>
+Tree<T>::node* Tree<T>::maxi(Tree<T>::node* t){
+    if (t->right == nullptr)
+        return t;
+    return maxi(t->right);
+}
+
+//template <class T>
+//Tree<T>::node Tree<T>::extract(T& n) {
+//    return this->del(this->root, n);
+//}
+//
+//template <class T>
+//Tree<T>::node Tree<T>::extract(Tree<T>::node* n) {
+//    return this->del(this->root, n->x);
+//}
 
 template <class T>
 void Tree<T>::insert(T x){
@@ -387,28 +582,20 @@ void Tree<T>::insert(T x){
 }
 
 template <class T>
-bool Tree<T>::exists(T n){
-    node* tmp = root;
-    while (tmp != nullptr){
-        if (tmp->x == n) {
-            return true;
-        } else if (tmp->x > n){
-            tmp = tmp->left;
-        } else {
-            tmp = tmp->right;
-        }
-    }
-    return false;
+bool Tree<T>::contains(const T& n) {
+    return this->find(n) != this->end();
 }
 
 template <class T>
-void Tree<T>::clear(Tree<T>::node* t) {
-    if (t == nullptr) {
-        return;
-    }
-    clear(t->left);
-    clear(t->right);
-    t = nullptr;
+void Tree<T>::clear() {
+    
+    delete root;
+    root = nullptr;
+}
+
+template <class T>
+void Tree<T>::swap(Tree<T>& C) {
+    std::swap(C.root, this->root);
 }
 
 template <class T>
@@ -420,5 +607,3 @@ Tree<T>& Tree<T>::merge(Tree<T>& tree) {
     clear(tree.root);
     return *this;
 }
-
-
